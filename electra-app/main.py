@@ -1,12 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from routes import gridcal
-from pydantic import BaseModel
-from typing import List, Optional
 import uvicorn
-import os
-from pathlib import Path
-import shutil
 
 # Crear instancia de FastAPI
 app = FastAPI(
