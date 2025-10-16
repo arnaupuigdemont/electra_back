@@ -1,14 +1,7 @@
-from pydantic import BaseModel
+"""
+Pydantic models for Electra backend, split per file for clarity.
 
-# Modelos específicos para GridCal
-class GridCalFileInfo(BaseModel):
-    filename: str
-    file_size: int
-    upload_timestamp: str
-    file_path: str
-    status: str = "uploaded"
-
-class FileUploadResponse(BaseModel):
-    message: str
-    file_info: GridCalFileInfo
-    success: bool
+Import directly from submodules, e.g.:
+from models.bus import Bus
+from models.grid_model import GridModel
+"""

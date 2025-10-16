@@ -1,31 +1,25 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import gridcal
-import uvicorn
+from routes import grid, bus, load, generator, shunt, transformer2w, line
 
-# Crear instancia de FastAPI
 app = FastAPI(
     title="Electra API",
     description="Backend API para la aplicación Electra",
-    version="1.0.0"
+    version="1.0.0",
 )
 
-# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, especifica los dominios permitidos
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(gridcal.router, prefix="/gridcal", tags=["GridCal"])
-
-# Ejecutar el servidor si se ejecuta directamente
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.0",
-        port=8000,
-        reload=True
-    )
+app.include_router(grid.router, prefix="/grid", tags=["grid"])
+app.include_router(bus.router, prefix="/bus", tags=["bus"])
+app.include_router(load.router, prefix="/load", tags=["load"])
+app.include_router(generator.router, prefix="/generator", tags=["generator"])
+app.include_router(shunt.router, prefix="/shunt", tags=["shunt"])
+app.include_router(transformer2w.router, prefix="/transformer2w", tags=["transformer2w"])
+app.include_router(line.router, prefix="/line", tags=["line"]) 
