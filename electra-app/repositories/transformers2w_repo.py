@@ -29,7 +29,22 @@ def ensure_schema(conn) -> None:
             """
         )
         cur.execute("ALTER TABLE transformers2w ADD COLUMN IF NOT EXISTS grid_id INTEGER;")
-        cur.execute("ALTER TABLE transformers2w ADD CONSTRAINT IF NOT EXISTS fk_transformers2w_grid FOREIGN KEY (grid_id) REFERENCES grids(id) ON DELETE CASCADE;")
+        cur.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint c
+                JOIN pg_class t ON t.oid = c.conrelid
+                WHERE c.conname = 'fk_transformers2w_grid'
+                  AND t.relname = 'transformers2w'
+            ) THEN
+                ALTER TABLE transformers2w
+                ADD CONSTRAINT fk_transformers2w_grid
+                FOREIGN KEY (grid_id) REFERENCES grids(id) ON DELETE CASCADE;
+            END IF;
+        END$$;
+        """)
     conn.commit()
 
 

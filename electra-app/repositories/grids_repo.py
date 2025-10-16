@@ -29,7 +29,12 @@ def insert_grid(name: Optional[str], base_mva: Optional[float], raw_json: str, t
                 "INSERT INTO grids (name, base_mva, raw_json, tmp_file_path) VALUES (%s, %s, %s, %s) RETURNING id;",
                 (name, base_mva, raw_json, tmp_file_path),
             )
-            grid_id = cur.fetchone()[0]
+            row = cur.fetchone()
+            # Support both tuple and RealDictRow
+            if isinstance(row, dict):
+                grid_id = row.get("id")
+            else:
+                grid_id = row[0]
         conn.commit()
         return grid_id
     except Exception:
@@ -59,7 +64,11 @@ def get_tmp_file_path(grid_id: int) -> Optional[str]:
         with conn.cursor() as cur:
             cur.execute("SELECT tmp_file_path FROM grids WHERE id = %s;", (grid_id,))
             row = cur.fetchone()
-            return row[0] if row else None
+            if not row:
+                return None
+            if isinstance(row, dict):
+                return row.get("tmp_file_path")
+            return row[0]
     finally:
         conn.close()
 

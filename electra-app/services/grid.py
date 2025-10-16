@@ -1,9 +1,13 @@
 from fastapi import UploadFile, HTTPException
+import logging
 import os
 import tempfile
 import VeraGridEngine as gce
 from repositories.grid_ingest_repo import save_grid_payload
 from repositories.grids_repo import list_grid_ids as repo_list_grid_ids
+
+logger = logging.getLogger(__name__)
+
 
 async def upload_file(file: UploadFile):
     try:
@@ -12,6 +16,8 @@ async def upload_file(file: UploadFile):
         suffix = os.path.splitext(file.filename)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             content = await file.read()
+            if not content:
+                raise HTTPException(status_code=400, detail="Uploaded file is empty")
             tmp.write(content)
             tmp_path = tmp.name
 
@@ -19,9 +25,16 @@ async def upload_file(file: UploadFile):
         grid_ = gce.open_file(tmp_path)
         instruction = gce.RemoteInstruction(operation=gce.SimulationTypes.NoSim)
         model_data = gce.gather_model_as_jsons_for_communication(circuit=grid_, instruction=instruction)
+
+        # Basic validation of VeraGridEngine response
+        if not isinstance(model_data, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=f"VeraGridEngine returned unexpected data type: {type(model_data).__name__}: {repr(model_data)[:200]}",
+            )
+
         # Attach tmp file path so we can clean it up later on delete
-        if isinstance(model_data, dict):
-            model_data["tmp_file_path"] = tmp_path
+        model_data["tmp_file_path"] = tmp_path
 
         # Persist in DB
         result = save_grid_payload(model_data)
@@ -43,7 +56,9 @@ async def upload_file(file: UploadFile):
                 os.remove(tmp_path)
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log full stack trace for diagnosis
+        logger.exception("Error during grid upload")
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
 
 def list_grid_ids():
     return repo_list_grid_ids()
