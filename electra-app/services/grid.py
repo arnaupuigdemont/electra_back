@@ -78,6 +78,3 @@ def delete_grid(grid_id: int):
         except Exception:
             # Swallow file deletion errors; DB removal already done
             pass
-
-
-# Bus-related logic lives in services/bus.py
