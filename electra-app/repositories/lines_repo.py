@@ -90,6 +90,7 @@ def upsert(conn, grid_id: int, lines: list[dict]) -> int:
 
 
 def get_line_by_id(line_id: int):
+    """Return line by its internal ID."""
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -102,5 +103,23 @@ def get_line_by_id(line_id: int):
                 (line_id,),
             )
             return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def list_lines():
+    """Return all lines ordered by id."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, grid_id, idtag, name, code, bus_from_idtag, bus_to_idtag, active,
+                       r, x, b, length
+                FROM lines
+                ORDER BY id;
+                """
+            )
+            return cur.fetchall()
     finally:
         conn.close()

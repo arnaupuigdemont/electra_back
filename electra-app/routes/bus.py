@@ -4,6 +4,10 @@ from services import bus
 router = APIRouter()
 
 
+@router.get("/")
+def list_buses():
+    return bus.list_buses()
+
 @router.get("/{bus_id}")
 def get_bus(bus_id: int):
     return bus.get_bus(bus_id)

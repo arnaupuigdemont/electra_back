@@ -88,6 +88,7 @@ def upsert(conn, grid_id: int, generators: list[dict]) -> int:
 
 
 def get_generator_by_id(generator_id: int):
+    """Get a generator by its internal ID."""
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -99,5 +100,22 @@ def get_generator_by_id(generator_id: int):
                 (generator_id,),
             )
             return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def list_generators():
+    """Return all generators ordered by id."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, grid_id, idtag, name, code, bus_idtag, active, p, vset, qmin, qmax, pf
+                FROM generators
+                ORDER BY id;
+                """
+            )
+            return cur.fetchall()
     finally:
         conn.close()

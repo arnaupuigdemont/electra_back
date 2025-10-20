@@ -1,13 +1,3 @@
-"""
-High-level grid ingestion repository.
-
-Coordinates persisting a full grid payload across multiple tables:
-- Ensures schemas for all related tables
-- Inserts a row in grids
-- Bulk upserts buses, loads, generators, shunts, transformers2w, lines
-
-Return value is a dict with counts per component and the created grid_id.
-"""
 import json
 from typing import Dict, Any
 from db.db import get_conn

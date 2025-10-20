@@ -18,7 +18,4 @@ def delete_grid(grid_id: int):
     return {"deleted": True, "grid_id": grid_id}
 
 
-# Bus endpoints live in routes/bus.py
-
-
 

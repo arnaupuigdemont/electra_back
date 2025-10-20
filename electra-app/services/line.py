@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from repositories.lines_repo import get_line_by_id
+from repositories.lines_repo import get_line_by_id, list_lines as repo_list_lines
 
 
 def get_line(line_id: int):
@@ -26,3 +26,33 @@ def get_line(line_id: int):
             "length": length,
         }
     return row
+
+
+def list_lines():
+    rows = repo_list_lines()
+    if not rows:
+        return []
+    normalized = []
+    for row in rows:
+        if isinstance(row, tuple):
+            (
+                id_, grid_id, idtag, name, code, bus_from_idtag, bus_to_idtag, active,
+                r, x, b, length,
+            ) = row
+            normalized.append({
+                "id": id_,
+                "grid_id": grid_id,
+                "idtag": idtag,
+                "name": name,
+                "code": code,
+                "bus_from_idtag": bus_from_idtag,
+                "bus_to_idtag": bus_to_idtag,
+                "active": active,
+                "r": r,
+                "x": x,
+                "b": b,
+                "length": length,
+            })
+        else:
+            normalized.append(row)
+    return normalized

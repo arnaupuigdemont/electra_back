@@ -76,6 +76,7 @@ def upsert(conn, grid_id: int, shunts: list[dict]) -> int:
 
 
 def get_shunt_by_id(shunt_id: int):
+    """Return shunt by its internal ID."""
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -87,5 +88,22 @@ def get_shunt_by_id(shunt_id: int):
                 (shunt_id,),
             )
             return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def list_shunts():
+    """Return all shunts ordered by id."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, grid_id, idtag, name, code, bus_idtag, active, b
+                FROM shunts
+                ORDER BY id;
+                """
+            )
+            return cur.fetchall()
     finally:
         conn.close()

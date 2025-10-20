@@ -88,6 +88,7 @@ def upsert(conn, grid_id: int, loads: list[dict]) -> int:
 
 
 def get_load_by_id(load_id: int):
+    """Return load by its internal ID."""
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -99,5 +100,22 @@ def get_load_by_id(load_id: int):
                 (load_id,),
             )
             return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def list_loads():
+    """Return all loads ordered by id."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, grid_id, idtag, name, code, bus_idtag, active, p, q, conn, longitude, latitude
+                FROM loads
+                ORDER BY id;
+                """
+            )
+            return cur.fetchall()
     finally:
         conn.close()

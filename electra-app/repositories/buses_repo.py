@@ -106,3 +106,21 @@ def get_bus_by_id(bus_id: int):
             return row
     finally:
         conn.close()
+
+
+def list_buses():
+    """Return all buses as a list of rows (dicts when using RealDictCursor)."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, grid_id, idtag, name, code, vnom, vm0, va0, x, y, longitude, latitude, is_slack
+                FROM buses
+                ORDER BY id;
+                """
+            )
+            rows = cur.fetchall()
+            return rows
+    finally:
+        conn.close()

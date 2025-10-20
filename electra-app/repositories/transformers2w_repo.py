@@ -99,6 +99,7 @@ def upsert(conn, grid_id: int, transformers: list[dict]) -> int:
 
 
 def get_transformer2w_by_id(transformer_id: int):
+    """Return 2-winding transformer by its internal ID."""
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -111,5 +112,23 @@ def get_transformer2w_by_id(transformer_id: int):
                 (transformer_id,),
             )
             return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def list_transformers2w():
+    """Return all 2-winding transformers ordered by id."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, grid_id, idtag, name, code, bus_from_idtag, bus_to_idtag, active,
+                       r, x, g, b, hv, lv, sn
+                FROM transformers2w
+                ORDER BY id;
+                """
+            )
+            return cur.fetchall()
     finally:
         conn.close()

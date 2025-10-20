@@ -15,7 +15,6 @@ def ensure_schema(conn) -> None:
             );
             """
         )
-        # Ensure new columns exist on existing deployments
         cur.execute("ALTER TABLE grids ADD COLUMN IF NOT EXISTS tmp_file_path TEXT;")
     conn.commit()
 
@@ -30,7 +29,6 @@ def insert_grid(name: Optional[str], base_mva: Optional[float], raw_json: str, t
                 (name, base_mva, raw_json, tmp_file_path),
             )
             row = cur.fetchone()
-            # Support both tuple and RealDictRow
             if isinstance(row, dict):
                 grid_id = row.get("id")
             else:
@@ -51,7 +49,6 @@ def list_grid_ids() -> List[int]:
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM grids ORDER BY created_at DESC, id DESC;")
             rows = cur.fetchall()
-        # rows are tuples (id,) unless RealDictCursor used
         return [row[0] if not isinstance(row, dict) else row["id"] for row in rows]
     finally:
         conn.close()
