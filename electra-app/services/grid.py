@@ -33,6 +33,10 @@ async def upload_file(file: UploadFile):
                 detail=f"VeraGridEngine returned unexpected data type: {type(model_data).__name__}: {repr(model_data)[:200]}",
             )
 
+        #src/VeraGrid/Gui/Diagrams/SchematicWidget/schematic_widget.py L1792
+        #function auto_layout
+
+
         # Attach tmp file path so we can clean it up later on delete
         model_data["tmp_file_path"] = tmp_path
 
@@ -51,11 +55,6 @@ async def upload_file(file: UploadFile):
         }
 
     except Exception as e:
-        try:
-            if 'tmp_path' in locals() and os.path.exists(tmp_path):
-                os.remove(tmp_path)
-        except Exception:
-            pass
         # Log full stack trace for diagnosis
         logger.exception("Error during grid upload")
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
@@ -65,16 +64,80 @@ def list_grid_ids():
 
 # Delete a grid and its associated tmp file (if present)
 def delete_grid(grid_id: int):
-    import os
     from repositories.grids_repo import get_tmp_file_path, delete_grid as repo_delete_grid
 
     tmp_path = get_tmp_file_path(grid_id)
     # Delete DB row first (children cascade)
     repo_delete_grid(grid_id)
-    # Best-effort removal of tmp file
+    # Delete the temporary file
     if tmp_path and os.path.exists(tmp_path):
         try:
             os.remove(tmp_path)
-        except Exception:
-            # Swallow file deletion errors; DB removal already done
-            pass
+            logger.info(f"Deleted temporary file: {tmp_path}")
+        except Exception as e:
+            logger.warning(f"Could not delete temporary file {tmp_path}: {e}")
+
+# Calculate power flow for a grid
+def calculate_power_flow(grid_id: int):
+    from repositories.grids_repo import get_tmp_file_path
+    
+    # Get the temporary file path for this grid
+    tmp_path = get_tmp_file_path(grid_id)
+    
+    if not tmp_path:
+        raise HTTPException(status_code=404, detail=f"Grid {grid_id} not found")
+    
+    if not os.path.exists(tmp_path):
+        raise HTTPException(status_code=404, detail=f"Grid file not found for grid {grid_id}")
+    
+    try:
+        # Open the grid file
+        main_circuit = gce.open_file(tmp_path)
+        
+        # Run power flow calculation
+        results = gce.power_flow(main_circuit)
+        
+        # Print results to console
+        print(f"\n===== Power Flow Results for {main_circuit.name} =====")
+        print(f"Converged: {results.converged}, Error: {results.error}")
+        print("\n--- Bus Results ---")
+        print(results.get_bus_df())
+        print("\n--- Branch Results ---")
+        print(results.get_branch_df())
+        print("=" * 50 + "\n")
+        
+        # Convert DataFrames to JSON-serializable format
+        import json
+        import numpy as np
+        
+        # Helper to convert numpy types to native Python types
+        def convert_numpy(obj):
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.bool_):
+                return bool(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return obj
+        
+        bus_df = results.get_bus_df()
+        branch_df = results.get_branch_df()
+        
+        # Convert to dict and then convert numpy types
+        bus_results = json.loads(bus_df.to_json(orient='records'))
+        branch_results = json.loads(branch_df.to_json(orient='records'))
+        
+        # Return results as JSON
+        return {
+            "grid_name": str(main_circuit.name),
+            "converged": bool(results.converged),
+            "error": float(results.error),
+            "bus_results": bus_results,
+            "branch_results": branch_results
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error calculating power flow for grid {grid_id}")
+        raise HTTPException(status_code=500, detail=f"Power flow calculation failed: {str(e)}")

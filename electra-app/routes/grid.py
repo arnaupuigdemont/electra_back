@@ -17,5 +17,8 @@ def delete_grid(grid_id: int):
     grid.delete_grid(grid_id)
     return {"deleted": True, "grid_id": grid_id}
 
+@router.get("/{grid_id}/power-flow")
+def calculate_power_flow(grid_id: int):
+    return grid.calculate_power_flow(grid_id)
 
 
