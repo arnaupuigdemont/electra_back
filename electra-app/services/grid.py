@@ -97,15 +97,6 @@ def calculate_power_flow(grid_id: int):
         # Run power flow calculation
         results = gce.power_flow(main_circuit)
         
-        # Print results to console
-        print(f"\n===== Power Flow Results for {main_circuit.name} =====")
-        print(f"Converged: {results.converged}, Error: {results.error}")
-        print("\n--- Bus Results ---")
-        print(results.get_bus_df())
-        print("\n--- Branch Results ---")
-        print(results.get_branch_df())
-        print("=" * 50 + "\n")
-        
         # Convert DataFrames to JSON-serializable format
         import json
         import numpy as np
@@ -130,6 +121,7 @@ def calculate_power_flow(grid_id: int):
         branch_results = json.loads(branch_df.to_json(orient='records'))
         
         # Return results as JSON
+        # Note: branch_results includes both lines and transformers
         return {
             "grid_name": str(main_circuit.name),
             "converged": bool(results.converged),
