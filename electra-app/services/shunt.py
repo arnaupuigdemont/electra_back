@@ -1,5 +1,11 @@
 from fastapi import HTTPException
-from repositories.shunts_repo import get_shunt_by_id, list_shunts as repo_list_shunts
+from repositories.shunts_repo import get_shunt_by_id, list_shunts as repo_list_shunts, update_shunt_status as repo_update_shunt_status
+import VeraGridEngine as gce
+from repositories.grids_repo import get_tmp_file_path
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_shunt(shunt_id: int):
@@ -146,3 +152,87 @@ def list_shunts():
         else:
             normalized.append(row)
     return normalized
+
+
+def update_shunt_status(shunt_id: int, active: bool):
+    """Update the active status of a shunt."""
+    # Get shunt details to know grid_id and idtag
+    shunt_row = get_shunt_by_id(shunt_id)
+    if not shunt_row:
+        raise HTTPException(status_code=404, detail="Shunt not found")
+    
+    # Extract grid_id and idtag from the row
+    if isinstance(shunt_row, tuple):
+        grid_id = shunt_row[1]  # grid_id is the second column
+        shunt_idtag = shunt_row[2]  # idtag is the third column
+    else:
+        grid_id = shunt_row.get('grid_id')
+        shunt_idtag = shunt_row.get('idtag')
+    
+    # Update the shunt status in database
+    result = repo_update_shunt_status(shunt_id, active)
+    if not result:
+        raise HTTPException(status_code=404, detail="Shunt not found")
+    
+    # Update VeraGrid circuit file
+    try:
+        tmp_path = get_tmp_file_path(grid_id)
+        if tmp_path and os.path.exists(tmp_path):
+            # Load the circuit
+            circuit = gce.open_file(tmp_path)
+            
+            # Find the shunt by idtag
+            for shunt in circuit.shunts:
+                if shunt.idtag == shunt_idtag:
+                    shunt.active = active
+                    break
+            
+            # Save the updated circuit
+            gce.save_file(circuit, tmp_path)
+            logger.info(f"Updated shunt {shunt_idtag} status to {active} in VeraGrid circuit")
+    except Exception as e:
+        logger.error(f"Error updating VeraGrid circuit: {e}")
+    
+    return {"message": "Shunt status updated", "shunt_id": shunt_id, "active": active}
+
+
+def update_shunt_status(shunt_id: int, active: bool):
+    """Update the active status of a shunt."""
+    # Get shunt details to know grid_id and idtag
+    shunt_row = get_shunt_by_id(shunt_id)
+    if not shunt_row:
+        raise HTTPException(status_code=404, detail="Shunt not found")
+    
+    # Extract grid_id and idtag from the row
+    if isinstance(shunt_row, tuple):
+        grid_id = shunt_row[1]  # grid_id is the second column
+        shunt_idtag = shunt_row[2]  # idtag is the third column
+    else:
+        grid_id = shunt_row.get('grid_id')
+        shunt_idtag = shunt_row.get('idtag')
+    
+    # Update the shunt status in database
+    result = repo_update_shunt_status(shunt_id, active)
+    if not result:
+        raise HTTPException(status_code=404, detail="Shunt not found")
+    
+    # Update VeraGrid circuit file
+    try:
+        tmp_path = get_tmp_file_path(grid_id)
+        if tmp_path and os.path.exists(tmp_path):
+            # Load the circuit
+            circuit = gce.open_file(tmp_path)
+            
+            # Find the shunt by idtag
+            for shunt in circuit.shunts:
+                if shunt.idtag == shunt_idtag:
+                    shunt.active = active
+                    break
+            
+            # Save the updated circuit
+            gce.save_file(circuit, tmp_path)
+            logger.info(f"Updated shunt {shunt_idtag} status to {active} in VeraGrid circuit")
+    except Exception as e:
+        logger.error(f"Error updating VeraGrid circuit: {e}")
+    
+    return {"message": "Shunt status updated", "shunt_id": shunt_id, "active": active}

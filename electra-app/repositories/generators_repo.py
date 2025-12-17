@@ -335,3 +335,23 @@ def list_generators():
             return cur.fetchall()
     finally:
         conn.close()
+
+
+def update_generator_status(generator_id: int, active: bool):
+    """Update the active status of a generator."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE generators SET active = %s WHERE id = %s
+                RETURNING id, grid_id, idtag;
+                """,
+                (active, generator_id),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result
+    finally:
+        conn.close()

@@ -359,3 +359,23 @@ def list_loads():
             return cur.fetchall()
     finally:
         conn.close()
+
+
+def update_load_status(load_id: int, active: bool):
+    """Update the active status of a load."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE loads SET active = %s WHERE id = %s
+                RETURNING id, grid_id, idtag;
+                """,
+                (active, load_id),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result
+    finally:
+        conn.close()

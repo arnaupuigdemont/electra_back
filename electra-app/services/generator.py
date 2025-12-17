@@ -1,5 +1,11 @@
 from fastapi import HTTPException
-from repositories.generators_repo import get_generator_by_id, list_generators as repo_list_generators
+from repositories.generators_repo import get_generator_by_id, list_generators as repo_list_generators, update_generator_status as repo_update_generator_status
+import VeraGridEngine as gce
+from repositories.grids_repo import get_tmp_file_path
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_generator(generator_id: int):
@@ -192,3 +198,45 @@ def list_generators():
         else:
             normalized.append(row)
     return normalized
+
+
+def update_generator_status(generator_id: int, active: bool):
+    """Update the active status of a generator."""
+    # Get generator details to know grid_id and idtag
+    gen_row = get_generator_by_id(generator_id)
+    if not gen_row:
+        raise HTTPException(status_code=404, detail="Generator not found")
+    
+    # Extract grid_id and idtag from the row
+    if isinstance(gen_row, tuple):
+        grid_id = gen_row[1]  # grid_id is the second column
+        gen_idtag = gen_row[2]  # idtag is the third column
+    else:
+        grid_id = gen_row.get('grid_id')
+        gen_idtag = gen_row.get('idtag')
+    
+    # Update the generator status in database
+    result = repo_update_generator_status(generator_id, active)
+    if not result:
+        raise HTTPException(status_code=404, detail="Generator not found")
+    
+    # Update VeraGrid circuit file
+    try:
+        tmp_path = get_tmp_file_path(grid_id)
+        if tmp_path and os.path.exists(tmp_path):
+            # Load the circuit
+            circuit = gce.open_file(tmp_path)
+            
+            # Find the generator by idtag
+            for gen in circuit.generators:
+                if gen.idtag == gen_idtag:
+                    gen.active = active
+                    break
+            
+            # Save the updated circuit
+            gce.save_file(circuit, tmp_path)
+            logger.info(f"Updated generator {gen_idtag} status to {active} in VeraGrid circuit")
+    except Exception as e:
+        logger.error(f"Error updating VeraGrid circuit: {e}")
+    
+    return {"message": "Generator status updated", "generator_id": generator_id, "active": active}

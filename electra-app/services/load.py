@@ -1,5 +1,11 @@
 from fastapi import HTTPException
-from repositories.loads_repo import get_load_by_id, list_loads as repo_list_loads
+from repositories.loads_repo import get_load_by_id, list_loads as repo_list_loads, update_load_status as repo_update_load_status
+import VeraGridEngine as gce
+from repositories.grids_repo import get_tmp_file_path
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_load(load_id: int):
@@ -208,3 +214,45 @@ def list_loads():
         else:
             normalized.append(row)
     return normalized
+
+
+def update_load_status(load_id: int, active: bool):
+    """Update the active status of a load."""
+    # Get load details to know grid_id and idtag
+    load_row = get_load_by_id(load_id)
+    if not load_row:
+        raise HTTPException(status_code=404, detail="Load not found")
+    
+    # Extract grid_id and idtag from the row
+    if isinstance(load_row, tuple):
+        grid_id = load_row[1]  # grid_id is the second column
+        load_idtag = load_row[2]  # idtag is the third column
+    else:
+        grid_id = load_row.get('grid_id')
+        load_idtag = load_row.get('idtag')
+    
+    # Update the load status in database
+    result = repo_update_load_status(load_id, active)
+    if not result:
+        raise HTTPException(status_code=404, detail="Load not found")
+    
+    # Update VeraGrid circuit file
+    try:
+        tmp_path = get_tmp_file_path(grid_id)
+        if tmp_path and os.path.exists(tmp_path):
+            # Load the circuit
+            circuit = gce.open_file(tmp_path)
+            
+            # Find the load by idtag
+            for load in circuit.loads:
+                if load.idtag == load_idtag:
+                    load.active = active
+                    break
+            
+            # Save the updated circuit
+            gce.save_file(circuit, tmp_path)
+            logger.info(f"Updated load {load_idtag} status to {active} in VeraGrid circuit")
+    except Exception as e:
+        logger.error(f"Error updating VeraGrid circuit: {e}")
+    
+    return {"message": "Load status updated", "load_id": load_id, "active": active}
