@@ -1,5 +1,11 @@
 from fastapi import HTTPException
-from repositories.lines_repo import get_line_by_id, list_lines as repo_list_lines
+from repositories.lines_repo import get_line_by_id, list_lines as repo_list_lines, update_line_status as repo_update_line_status
+import VeraGridEngine as gce
+from repositories.grids_repo import get_tmp_file_path
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_line(line_id: int):
@@ -168,3 +174,45 @@ def list_lines():
         else:
             normalized.append(row)
     return normalized
+
+
+def update_line_status(line_id: int, active: bool):
+    """Update the active status of a line."""
+    # Get line details to know grid_id and idtag
+    line_row = get_line_by_id(line_id)
+    if not line_row:
+        raise HTTPException(status_code=404, detail="Line not found")
+    
+    # Extract grid_id and idtag from the row
+    if isinstance(line_row, tuple):
+        grid_id = line_row[1]  # grid_id is the second column
+        line_idtag = line_row[2]  # idtag is the third column
+    else:
+        grid_id = line_row.get('grid_id')
+        line_idtag = line_row.get('idtag')
+    
+    # Update the line status in database
+    result = repo_update_line_status(line_id, active)
+    if not result:
+        raise HTTPException(status_code=404, detail="Line not found")
+    
+    # Update VeraGrid circuit file
+    try:
+        tmp_path = get_tmp_file_path(grid_id)
+        if tmp_path and os.path.exists(tmp_path):
+            # Load the circuit
+            circuit = gce.open_file(tmp_path)
+            
+            # Find the line by idtag
+            for line in circuit.lines:
+                if line.idtag == line_idtag:
+                    line.active = active
+                    break
+            
+            # Save the updated circuit
+            gce.save_file(circuit, tmp_path)
+            logger.info(f"Updated line {line_idtag} status to {active} in VeraGrid circuit")
+    except Exception as e:
+        logger.error(f"Error updating VeraGrid circuit: {e}")
+    
+    return {"message": "Line status updated", "line_id": line_id, "active": active}

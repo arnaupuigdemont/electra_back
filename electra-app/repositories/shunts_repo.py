@@ -267,3 +267,23 @@ def list_shunts():
             return cur.fetchall()
     finally:
         conn.close()
+
+
+def update_shunt_status(shunt_id: int, active: bool):
+    """Update the active status of a shunt."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE shunts SET active = %s WHERE id = %s
+                RETURNING id, grid_id, idtag;
+                """,
+                (active, shunt_id),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result
+    finally:
+        conn.close()

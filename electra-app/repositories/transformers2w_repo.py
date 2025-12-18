@@ -382,3 +382,23 @@ def list_transformers2w():
             return cur.fetchall()
     finally:
         conn.close()
+
+
+def update_transformer_status(transformer_id: int, active: bool):
+    """Update the active status of a transformer."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE transformers2w SET active = %s WHERE id = %s
+                RETURNING id, grid_id, idtag;
+                """,
+                (active, transformer_id),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result
+    finally:
+        conn.close()

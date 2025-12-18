@@ -1,5 +1,11 @@
 from fastapi import HTTPException
-from repositories.transformers2w_repo import get_transformer2w_by_id, list_transformers2w as repo_list_transformers2w
+from repositories.transformers2w_repo import get_transformer2w_by_id, list_transformers2w as repo_list_transformers2w, update_transformer_status as repo_update_transformer_status
+import VeraGridEngine as gce
+from repositories.grids_repo import get_tmp_file_path
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_transformer2w(transformer_id: int):
@@ -222,3 +228,45 @@ def list_transformers2w():
         else:
             normalized.append(row)
     return normalized
+
+
+def update_transformer_status(transformer_id: int, active: bool):
+    """Update the active status of a transformer."""
+    # Get transformer details to know grid_id and idtag
+    transformer_row = get_transformer2w_by_id(transformer_id)
+    if not transformer_row:
+        raise HTTPException(status_code=404, detail="Transformer not found")
+    
+    # Extract grid_id and idtag from the row
+    if isinstance(transformer_row, tuple):
+        grid_id = transformer_row[1]  # grid_id is the second column
+        transformer_idtag = transformer_row[2]  # idtag is the third column
+    else:
+        grid_id = transformer_row.get('grid_id')
+        transformer_idtag = transformer_row.get('idtag')
+    
+    # Update the transformer status in database
+    result = repo_update_transformer_status(transformer_id, active)
+    if not result:
+        raise HTTPException(status_code=404, detail="Transformer not found")
+    
+    # Update VeraGrid circuit file
+    try:
+        tmp_path = get_tmp_file_path(grid_id)
+        if tmp_path and os.path.exists(tmp_path):
+            # Load the circuit
+            circuit = gce.open_file(tmp_path)
+            
+            # Find the transformer by idtag
+            for transformer in circuit.transformers2w:
+                if transformer.idtag == transformer_idtag:
+                    transformer.active = active
+                    break
+            
+            # Save the updated circuit
+            gce.save_file(circuit, tmp_path)
+            logger.info(f"Updated transformer {transformer_idtag} status to {active} in VeraGrid circuit")
+    except Exception as e:
+        logger.error(f"Error updating VeraGrid circuit: {e}")
+    
+    return {"message": "Transformer status updated", "transformer_id": transformer_id, "active": active}

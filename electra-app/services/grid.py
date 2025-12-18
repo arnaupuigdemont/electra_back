@@ -80,6 +80,12 @@ def delete_grid(grid_id: int):
 # Calculate power flow for a grid
 def calculate_power_flow(grid_id: int):
     from repositories.grids_repo import get_tmp_file_path
+    from services.bus import list_buses as service_list_buses
+    from services.generator import list_generators as service_list_generators
+    from services.load import list_loads as service_list_loads
+    from services.shunt import list_shunts as service_list_shunts
+    from services.line import list_lines as service_list_lines
+    from services.transformer2w import list_transformers2w as service_list_transformers2w
     
     # Get the temporary file path for this grid
     tmp_path = get_tmp_file_path(grid_id)
@@ -93,6 +99,64 @@ def calculate_power_flow(grid_id: int):
     try:
         # Open the grid file
         main_circuit = gce.open_file(tmp_path)
+        
+        # Sync active status from database to circuit
+        # Get all elements from database for this grid
+        
+        db_buses = service_list_buses()
+        db_generators = service_list_generators()
+        db_loads = service_list_loads()
+        db_shunts = service_list_shunts()
+        db_lines = service_list_lines()
+        db_transformers = service_list_transformers2w()
+        
+        # Filter by grid_id
+        db_buses = [b for b in db_buses if b.get('grid_id') == grid_id]
+        db_generators = [g for g in db_generators if g.get('grid_id') == grid_id]
+        db_loads = [l for l in db_loads if l.get('grid_id') == grid_id]
+        db_shunts = [s for s in db_shunts if s.get('grid_id') == grid_id]
+        db_lines = [l for l in db_lines if l.get('grid_id') == grid_id]
+        db_transformers = [t for t in db_transformers if t.get('grid_id') == grid_id]
+        
+        # Sync buses
+        for bus in main_circuit.buses:
+            db_bus = next((b for b in db_buses if b.get('idtag') == bus.idtag), None)
+            if db_bus and 'active' in db_bus:
+                bus.active = db_bus['active']
+        
+        # Sync generators
+        for gen in main_circuit.generators:
+            db_gen = next((g for g in db_generators if g.get('idtag') == gen.idtag), None)
+            if db_gen and 'active' in db_gen:
+                gen.active = db_gen['active']
+        
+        # Sync loads
+        for load in main_circuit.loads:
+            db_load = next((l for l in db_loads if l.get('idtag') == load.idtag), None)
+            if db_load and 'active' in db_load:
+                load.active = db_load['active']
+        
+        # Sync shunts
+        for shunt in main_circuit.shunts:
+            db_shunt = next((s for s in db_shunts if s.get('idtag') == shunt.idtag), None)
+            if db_shunt and 'active' in db_shunt:
+                shunt.active = db_shunt['active']
+        
+        # Sync lines
+        for line in main_circuit.lines:
+            db_line = next((l for l in db_lines if l.get('idtag') == line.idtag), None)
+            if db_line and 'active' in db_line:
+                line.active = db_line['active']
+        
+        # Sync transformers
+        for transformer in main_circuit.transformers2w:
+            db_transformer = next((t for t in db_transformers if t.get('idtag') == transformer.idtag), None)
+            if db_transformer and 'active' in db_transformer:
+                transformer.active = db_transformer['active']
+        
+        # Save updated circuit back to tmp file
+        gce.save_file(main_circuit, tmp_path)
+        logger.info(f"Synced active status from database to circuit for grid {grid_id}")
         
         # Run power flow calculation
         results = gce.power_flow(main_circuit)

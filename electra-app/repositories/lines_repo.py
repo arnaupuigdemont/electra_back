@@ -301,3 +301,23 @@ def list_lines():
             return cur.fetchall()
     finally:
         conn.close()
+
+
+def update_line_status(line_id: int, active: bool):
+    """Update the active status of a line."""
+    conn = get_conn()
+    ensure_schema(conn)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE lines SET active = %s WHERE id = %s
+                RETURNING id, grid_id, idtag;
+                """,
+                (active, line_id),
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result
+    finally:
+        conn.close()

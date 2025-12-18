@@ -246,3 +246,67 @@ def list_buses():
             return rows
     finally:
         conn.close()
+
+
+def update_bus_status(bus_id: int, active: bool):
+    """Update the active status of a bus."""
+    conn = get_conn()
+    try:
+        ensure_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE buses
+                SET active = %s
+                WHERE id = %s
+                RETURNING id, grid_id, idtag;
+                """,
+                (active, bus_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+        conn.commit()
+        return row
+    finally:
+        conn.close()
+
+
+def update_elements_by_bus_idtag(grid_id: int, bus_idtag: str, active: bool):
+    """Update active status of generators, loads, and shunts connected to a bus (cascading deactivation).
+    Note: Lines and transformers are NOT affected."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            # Update generators connected to this bus
+            cur.execute(
+                """
+                UPDATE generators
+                SET active = %s
+                WHERE grid_id = %s AND bus_idtag = %s;
+                """,
+                (active, grid_id, bus_idtag),
+            )
+            
+            # Update loads connected to this bus
+            cur.execute(
+                """
+                UPDATE loads
+                SET active = %s
+                WHERE grid_id = %s AND bus_idtag = %s;
+                """,
+                (active, grid_id, bus_idtag),
+            )
+            
+            # Update shunts connected to this bus
+            cur.execute(
+                """
+                UPDATE shunts
+                SET active = %s
+                WHERE grid_id = %s AND bus_idtag = %s;
+                """,
+                (active, grid_id, bus_idtag),
+            )
+        conn.commit()
+    finally:
+        conn.close()
