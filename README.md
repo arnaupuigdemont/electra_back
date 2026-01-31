@@ -1,47 +1,71 @@
-# electra_back
+# ELECTRA: Power System Analysis Engine (Backend)
 
-.\env_backend\Scripts\Activate.ps1
+## 🎓 Project Context
+This project serves as the backend component for **ELECTRA**, my **Bachelor's Thesis (TFG)** in **Computer Engineering** at the **Barcelona School of Informatics (FIB - UPC)**.
 
-# run app in local server from electra-app
+It acts as the computational engine for the Electra platform, bridging the gap between modern web interfaces and rigorous power system analysis tools.
 
-C:/Users/arnau/Documents/UNI/tfg/electra_back/env_backend/Scripts/Activate.ps1
-cd electra-app
-uvicorn main:app --reload
+## 📋 Description
+**Electra Backend** is a high-performance REST API designed to process, simulate, and manage electric grid data. It is built with **FastAPI** and uses **[VeraGridEngine](https://pypi.org/project/VeraGridEngine/)** as its scientific core to perform numerical calculations.
 
-API Documentation (Swagger UI): http://127.0.0.1:8000/docs
+The API exposes endpoints to parse grid files, persist grid data in a **PostgreSQL** database, and execute complex simulations like **Power Flow**, returning the results to the frontend in real-time.
 
-## Database configuration
+### Key Features
+* **Scientific Core:** Leverages **VeraGridEngine** for high-precision power system modelling and simulation.
+* **Grid Management:** Supports uploading and parsing grid files, with granular access to elements (Buses, Lines, Generators, Shunts, Transformers).
+* **Simulation Engine:**
+    * **Power Flow:** Calculates voltages, angles, and branch loadings.
+* **Persistence:** Uses **PostgreSQL** to store grid models and simulation states.
+* **Modern API:** Fully typed, async-ready endpoints documented automatically with Swagger/OpenAPI.
 
-The backend reads `DATABASE_URL` from environment (via `.env` in `electra-app/` or OS env).
+## 🛠️ Technical Implementation
 
-- Recommended (host dev):
-	- `postgresql://electra:electra@localhost:5432/electra`
-- If backend runs in Docker network:
-	- `postgresql://electra:electra@db:5432/electra`
+### Core Stack
+* **Language:** Python 3.12.
+* **Framework:** [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn.
+* **Simulation Engine:** VeraGridEngine.
+* **Database:** PostgreSQL (via `psycopg2-binary`).
+* **Containerization:** Docker & Docker Compose.
 
-You can create `electra-app/.env` by copying `.env.example`:
+### API Architecture
+The backend is structured around resources corresponding to physical grid elements, with dedicated routers for each:
+* `/grid`: File upload, simulation triggers (Power Flow), and ID listing.
+* `/bus`, `/line`, `/generator`, `/load`, `/shunt`, `/transformer2w`: CRUD access to topology.
+* `/health`: System health checks.
 
-```
-cp electra-app/.env.example electra-app/.env
-# then edit electra-app/.env if needed
-```
+## 🚀 Usage
 
-Note: If you previously used an SQLAlchemy-style URL like `postgresql+psycopg://...`, the backend now normalizes it automatically, but using the plain `postgresql://` form is preferred.
+### Prerequisites
+* Docker & Docker Compose
 
-## Endpoints
+### Running with Docker (Recommended)
+The infrastructure is defined in the `infra` folder.
 
-- Upload grid file
-	- POST `/grid/files/upload` (multipart form-data with `file`)
-	- Rejects empty files with 400
-- List grid ids
-	- GET `/grid/ids`
-- Delete grid (cascade + tmp file cleanup)
-	- DELETE `/grid/{grid_id}`
+1.  **Navigate to the infrastructure directory:**
+    ```bash
+    cd infra
+    ```
 
-Per-component (by primary key id):
-- GET `/bus/{id}`
-- GET `/load/{id}`
-- GET `/generator/{id}`
-- GET `/shunt/{id}`
-- GET `/transformer2w/{id}`
-- GET `/line/{id}`
+2.  **Start the services (Database + API):**
+    ```bash
+    docker-compose up --build
+    ```
+    This will start a PostgreSQL container (`db`) and the API container (`backend`).
+
+The API will be available at `http://localhost:8000`.
+**Interactive Docs (Swagger UI):** `http://localhost:8000/docs`
+
+### Local Development
+
+If you wish to run the Python app outside of Docker (e.g., for debugging), ensure you have a PostgreSQL instance running and configured in your environment variables.
+
+1.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  **Run the server:**
+    ```bash
+    cd electra-app
+    uvicorn main:app --reload --port 8000
+    ```
